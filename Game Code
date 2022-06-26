@@ -1,1 +1,128 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
+using UnityEngine;
+using System;
 
+public class PlayerMouvement : MonoBehaviour
+{
+    double xposition; //Initializing the "x" position variable of the square (that we can change)
+    double yposition; //Initializing the "y" position variable of the square (that we can change)
+    double xvelocity; //Initializing the velocity in "x" variable of the square (that we can change)
+    double yvelocity; //Initializing the velocity in "y" variable of the square (that we can change)
+    Vector2 DirectionalGravity;
+
+    [SerializeField] private double g = 9; //Gravitational strength of the directed gravity field
+    [SerializeField] private double GravityMultiplier = 3; //Multiplies downward force when player stops pressing spacebar
+    [SerializeField] private double JumpForce = 15;
+    bool DirectionGravity = true; //Do we apply Directional gravity ? false = no, true = yes
+ 
+
+    //Initializing things for mouvement
+    public static BoxCollider2D coll;
+    public static Rigidbody2D square;
+    [SerializeField] public LayerMask jumpableGround;
+
+    //Initializing Horizontal Mouvement Variables
+    double Acceleration = 13;
+    double Deceleration = 16;
+    double TargetSpeed;
+    double TopSpeed = 9;
+    double SpeedDif;
+    double AccelRate;
+    double Mouvement;
+    double Direction;
+
+    //Friction
+    float amount;
+    float FrictionAmount;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        square = GetComponent<Rigidbody2D>(); //Assigning a variable that we can call to the rigidbody we created
+        coll = GetComponent<BoxCollider2D>();
+        square.position = new Vector2(0,0); //Assigning a initial position to the square (rigidbody)
+        square.velocity = new Vector2(0,0); //Assigning a initial velocity to the square (rigidbody)
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+        //Gravity
+        if (DirectionGravity) //Do we want directional gravity ?
+        { 
+
+        //square.AddForce(new Vector2(0,-Convert.ToSingle(g)));
+        
+        }
+
+        //Is Spacebar being pressed ?
+
+
+        //Variable Jump
+
+        if (Input.GetKey("space") == false && square.velocity.y > 0)
+        {
+            square.AddForce(new Vector2(0, -Convert.ToSingle(g * GravityMultiplier) ));
+        } else
+        {
+            square.AddForce(new Vector2(0, -Convert.ToSingle(g) ));
+        }
+
+
+        //Horizontal mouvement
+
+        if (Input.GetAxisRaw("Horizontal") != 0){
+    
+        
+        Direction = Input.GetAxisRaw("Horizontal");
+        
+        TargetSpeed = Direction * TopSpeed;
+
+        SpeedDif = TargetSpeed - Convert.ToDouble(square.velocity.x);
+
+        AccelRate = (Math.Abs(TargetSpeed) > 0f) ? Acceleration : Deceleration;
+
+        Mouvement = Math.Pow(Math.Abs(SpeedDif) * AccelRate, 0.96) * Math.Sign(SpeedDif);
+
+        square.AddForce(new Vector2(Convert.ToSingle(Mouvement),0));
+
+
+        }
+
+        //Friction
+
+        if (Input.GetAxisRaw("Horizontal") == 0){
+
+        FrictionAmount = 0.1F;
+
+        amount = Math.Min(Math.Abs(square.velocity.x), Math.Abs(FrictionAmount));
+
+        amount *= Math.Sign(square.velocity.x);
+
+        square.AddForce(new Vector2(-amount, 0), ForceMode2D.Impulse);
+
+        }
+
+        //Defining Variables
+
+        if(Input.GetButtonDown("Jump") && isGrounded())
+        {
+            square.AddForce(new Vector2(0, Convert.ToSingle(JumpForce)), ForceMode2D.Impulse);
+            float lastGroundedTime = 0;
+            float lastJumpTime = 0;
+        }
+
+
+        bool isGrounded()
+        {
+            return Physics2D.BoxCast(coll.bounds.center,coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
+            //return(Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0, groundLayer));
+        }
+
+
+
+    }
+}
