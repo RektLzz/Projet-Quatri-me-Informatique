@@ -193,7 +193,7 @@ public class PlayerMouvement : MonoBehaviour
 
         //Edge Detection
 
-        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0 && CooldownCounter < 0)
+        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0 && CooldownCounter < 0 && Input.GetAxisRaw("Horizontal") != 0)
         {
             Debug.Log(square.position.y);
             square.AddForce(new Vector2(square.velocity.x, BoostCoefficent), ForceMode2D.Impulse);
