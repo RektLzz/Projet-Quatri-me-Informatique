@@ -10,7 +10,6 @@ public class PlayerMouvement : MonoBehaviour
     double yposition; //Initializing the "y" position variable of the square (that we can change)
     double xvelocity; //Initializing the velocity in "x" variable of the square (that we can change)
     double yvelocity; //Initializing the velocity in "y" variable of the square (that we can change)
-    Vector2 DirectionalGravity;
 
     [SerializeField] private double g = 9; //Gravitational strength of the directed gravity field
     [SerializeField] private double GravityMultiplier = 3; //Multiplies downward force when player stops pressing spacebar
@@ -33,9 +32,22 @@ public class PlayerMouvement : MonoBehaviour
     double Mouvement;
     double Direction;
 
+    //Fall gravity (not added yet)
+    float FallGravityMultiplier = 1.5F;
+
+    //Clamp (cap) fall speed
+    float MaxFallSpeed = -10;
+
     //Friction
     float amount;
     float FrictionAmount;
+
+    //Coyote Time
+    float CoyoteTime = 0.1F; //How much time the player has to have pressed space bar since last grounded to jump
+    float CoyoteTimeCounter;
+    float JumpBufferTime = 0.2F;
+    float JumpBufferTimeCounter;
+
 
     // Start is called before the first frame update
     void Start()
@@ -49,15 +61,7 @@ public class PlayerMouvement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
-        //Gravity
-        if (DirectionGravity) //Do we want directional gravity ?
-        { 
-
-        //square.AddForce(new Vector2(0,-Convert.ToSingle(g)));
-        
-        }
-
+     
         //Is Spacebar being pressed ?
 
 
@@ -66,10 +70,17 @@ public class PlayerMouvement : MonoBehaviour
         if (Input.GetKey("space") == false && square.velocity.y > 0)
         {
             square.AddForce(new Vector2(0, -Convert.ToSingle(g * GravityMultiplier) ));
-        } else
+
+            CoyoteTimeCounter = 0f; //Once we stop pressing spacebar, the coyote time goes back to 0
+
+        } 
+        else
         {
-            square.AddForce(new Vector2(0, -Convert.ToSingle(g) ));
+            square.AddForce(new Vector2(0, -Convert.ToSingle(g*FallGravityMultiplier) ));
         }
+
+        //Clamping (capping) fall speed
+
 
 
         //Horizontal mouvement
@@ -106,21 +117,51 @@ public class PlayerMouvement : MonoBehaviour
 
         }
 
-        //Defining Variables
+        //Jump
 
-        if(Input.GetButtonDown("Jump") && isGrounded())
+        if(JumpBufferTimeCounter > 0 && CoyoteTimeCounter > 0)
         {
             square.AddForce(new Vector2(0, Convert.ToSingle(JumpForce)), ForceMode2D.Impulse);
-            float lastGroundedTime = 0;
-            float lastJumpTime = 0;
+
+            JumpBufferTimeCounter = 0;
+
         }
 
+        //Checks If Player is Grounded (on the ground)
 
         bool isGrounded()
         {
             return Physics2D.BoxCast(coll.bounds.center,coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
-            //return(Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0, groundLayer));
         }
+
+        //Coyote Time
+
+
+        //Checks when was the last time the player was grounded
+
+        if (isGrounded() == true)
+        {
+            CoyoteTimeCounter = CoyoteTime;
+        }
+        else if (isGrounded() == false)
+        {
+            CoyoteTimeCounter -= Time.deltaTime; //Counts down time
+        }
+
+        //Checks when was the last time the player pressed space bar
+
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            JumpBufferTimeCounter = JumpBufferTime;
+        }
+        else
+        {
+            JumpBufferTimeCounter -= Time.deltaTime;
+        }
+
+       
+
 
 
 
