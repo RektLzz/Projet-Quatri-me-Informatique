@@ -48,6 +48,9 @@ public class PlayerMouvement : MonoBehaviour
     float JumpBufferTime = 0.2F;
     float JumpBufferTimeCounter;
 
+    //Edge Detection
+    float PreviousVelocity;
+    float NudgedPosition;
 
     // Start is called before the first frame update
     void Start()
@@ -163,10 +166,20 @@ public class PlayerMouvement : MonoBehaviour
             JumpBufferTimeCounter -= Time.deltaTime;
         }
 
-       
+        //Checks when was the last time the player has pressed spacebar
 
 
+        //Edge Detection
 
+        if (square.velocity.y < 0 && PreviousVelocity > 0)
+        {
+            NudgedPosition = square.position.y + 0.1F;
+            square.position = new Vector2(square.position.x, NudgedPosition);
+        }
+
+        PreviousVelocity = square.velocity.y;
+
+        //
 
     }
 }
