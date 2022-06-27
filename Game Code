@@ -32,11 +32,11 @@ public class PlayerMouvement : MonoBehaviour
     double Mouvement;
     double Direction;
 
-    //Fall gravity (not added yet)
-    float FallGravityMultiplier = 1.5F;
+    //Fall gravity
+    float FallGravityMultiplier = 2F;
 
     //Clamp (cap) fall speed
-    float MaxFallSpeed = -10;
+    float MaxFallSpeed = -15;
 
     //Friction
     float amount;
@@ -80,7 +80,10 @@ public class PlayerMouvement : MonoBehaviour
         }
 
         //Clamping (capping) fall speed
-
+        if (square.velocity.y <= MaxFallSpeed)
+        {
+            square.velocity = new Vector2(square.velocity.x, MaxFallSpeed);
+        }
 
 
         //Horizontal mouvement
