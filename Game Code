@@ -11,9 +11,9 @@ public class PlayerMouvement : MonoBehaviour
     double xvelocity; //Initializing the velocity in "x" variable of the square (that we can change)
     double yvelocity; //Initializing the velocity in "y" variable of the square (that we can change)
 
-    [SerializeField] private double g = 9; //Gravitational strength of the directed gravity field
-    [SerializeField] private double GravityMultiplier = 3; //Multiplies downward force when player stops pressing spacebar
-    [SerializeField] private double JumpForce = 15;
+    [SerializeField] private double g = 25; //Gravitational strength of the directed gravity field
+    [SerializeField] private double GravityMultiplier = 4; //Multiplies downward force when player stops pressing spacebar
+    [SerializeField] private double JumpForce = 13;
     bool DirectionGravity = true; //Do we apply Directional gravity ? false = no, true = yes
 
 
@@ -44,7 +44,7 @@ public class PlayerMouvement : MonoBehaviour
     float FrictionAmount;
 
     //Coyote Time
-    float CoyoteTime = 0.1F; //How much time the player has to have pressed space bar since last grounded to jump
+    float CoyoteTime = 0.15F; //How much time the player has to have pressed space bar since last grounded to jump
     float CoyoteTimeCounter;
     float JumpBufferTime = 0.2F;
     float JumpBufferTimeCounter;
@@ -52,6 +52,9 @@ public class PlayerMouvement : MonoBehaviour
     //Edge Detection
     float PreviousVelocity;
     float NudgedPosition;
+    float Cooldown = 0.2F;
+    float CooldownCounter;
+    float BoostCoefficent = 4F;
 
 
     //Defining all user input variables
@@ -91,7 +94,7 @@ public class PlayerMouvement : MonoBehaviour
         }
         else if (isGrounded() == false)
         {
-            CoyoteTimeCounter -= Time.fixedDeltaTime; //Counts down time
+            CoyoteTimeCounter -= Time.deltaTime; //Counts down time
         }
 
 
@@ -103,8 +106,12 @@ public class PlayerMouvement : MonoBehaviour
         }
         else
         {
-            JumpBufferTimeCounter -= Time.fixedDeltaTime;
+            JumpBufferTimeCounter -= Time.deltaTime;
         }
+
+        //Edge detection
+
+        CooldownCounter -= Time.deltaTime;
 
     }
 
@@ -186,15 +193,14 @@ public class PlayerMouvement : MonoBehaviour
 
         //Edge Detection
 
-        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0)
+        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0 && CooldownCounter < 0)
         {
             Debug.Log(square.position.y);
-            /*
-            NudgedPosition = square.position.y + 0.1F;
-            square.position = new Vector2(square.position.x, NudgedPosition);
-            square.velocity = new Vector2(square.velocity.x, 0);
-            */
+            square.AddForce(new Vector2(square.velocity.x, BoostCoefficent), ForceMode2D.Impulse);
+            CooldownCounter = Cooldown;
+           
         }
+        Debug.Log(CooldownCounter);
 
         PreviousVelocity = square.velocity.y;
 
