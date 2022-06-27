@@ -15,7 +15,7 @@ public class PlayerMouvement : MonoBehaviour
     [SerializeField] private double GravityMultiplier = 3; //Multiplies downward force when player stops pressing spacebar
     [SerializeField] private double JumpForce = 15;
     bool DirectionGravity = true; //Do we apply Directional gravity ? false = no, true = yes
- 
+
 
     //Initializing things for mouvement
     public static BoxCollider2D coll;
@@ -31,6 +31,7 @@ public class PlayerMouvement : MonoBehaviour
     double AccelRate;
     double Mouvement;
     double Direction;
+    bool IsGrounded;
 
     //Fall gravity
     float FallGravityMultiplier = 2F;
@@ -52,34 +53,77 @@ public class PlayerMouvement : MonoBehaviour
     float PreviousVelocity;
     float NudgedPosition;
 
+
+    //Defining all user input variables
+    bool PressSpace;
+    bool HoldingSpace;
+    float ArrowKeyDirection;
+
     // Start is called before the first frame update
     void Start()
     {
         square = GetComponent<Rigidbody2D>(); //Assigning a variable that we can call to the rigidbody we created
         coll = GetComponent<BoxCollider2D>();
-        square.position = new Vector2(0,0); //Assigning a initial position to the square (rigidbody)
-        square.velocity = new Vector2(0,0); //Assigning a initial velocity to the square (rigidbody)
+        square.position = new Vector2(0, 0); //Assigning a initial position to the square (rigidbody)
+        square.velocity = new Vector2(0, 0); //Assigning a initial velocity to the square (rigidbody)
     }
 
     // Update is called once per frame
-    void Update()
+
+    public void Update()
     {
-     
-        //Is Spacebar being pressed ?
+
+        //Checks If Player is Grounded (on the ground)
+
+        bool isGrounded()
+        {
+            return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
+        }
 
 
+        //Coyote Time
+
+        //Checks when was the last time the player was grounded
+
+        if (isGrounded() == true)
+        {
+            CoyoteTimeCounter = CoyoteTime;
+        }
+        else if (isGrounded() == false)
+        {
+            CoyoteTimeCounter -= Time.fixedDeltaTime; //Counts down time
+        }
+
+
+        //Checks when was the last time the player pressed space bar
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            JumpBufferTimeCounter = JumpBufferTime;
+        }
+        else
+        {
+            JumpBufferTimeCounter -= Time.fixedDeltaTime;
+        }
+
+    }
+
+
+
+    public void FixedUpdate()
+    {
         //Variable Jump
 
         if (Input.GetKey("space") == false && square.velocity.y > 0)
         {
-            square.AddForce(new Vector2(0, -Convert.ToSingle(g * GravityMultiplier) ));
+            square.AddForce(new Vector2(0, -Convert.ToSingle(g * GravityMultiplier)));
 
             CoyoteTimeCounter = 0f; //Once we stop pressing spacebar, the coyote time goes back to 0
 
-        } 
+        }
         else
         {
-            square.AddForce(new Vector2(0, -Convert.ToSingle(g*FallGravityMultiplier) ));
+            square.AddForce(new Vector2(0, -Convert.ToSingle(g * FallGravityMultiplier)));
         }
 
         //Clamping (capping) fall speed
@@ -91,41 +135,44 @@ public class PlayerMouvement : MonoBehaviour
 
         //Horizontal mouvement
 
-        if (Input.GetAxisRaw("Horizontal") != 0){
-    
-        
-        Direction = Input.GetAxisRaw("Horizontal");
-        
-        TargetSpeed = Direction * TopSpeed;
+        if (Input.GetAxisRaw("Horizontal") != 0)
+        {
 
-        SpeedDif = TargetSpeed - Convert.ToDouble(square.velocity.x);
 
-        AccelRate = (Math.Abs(TargetSpeed) > 0f) ? Acceleration : Deceleration;
+            Direction = Input.GetAxisRaw("Horizontal");
 
-        Mouvement = Math.Pow(Math.Abs(SpeedDif) * AccelRate, 0.96) * Math.Sign(SpeedDif);
+            TargetSpeed = Direction * TopSpeed;
 
-        square.AddForce(new Vector2(Convert.ToSingle(Mouvement),0));
+            SpeedDif = TargetSpeed - Convert.ToDouble(square.velocity.x);
+
+            AccelRate = (Math.Abs(TargetSpeed) > 0f) ? Acceleration : Deceleration;
+
+            Mouvement = Math.Pow(Math.Abs(SpeedDif) * AccelRate, 0.96) * Math.Sign(SpeedDif);
+
+            square.AddForce(new Vector2(Convert.ToSingle(Mouvement), 0));
 
 
         }
 
         //Friction
 
-        if (Input.GetAxisRaw("Horizontal") == 0){
+        if (Input.GetAxisRaw("Horizontal") == 0)
+        {
 
-        FrictionAmount = 0.1F;
+            FrictionAmount = 0.1F;
 
-        amount = Math.Min(Math.Abs(square.velocity.x), Math.Abs(FrictionAmount));
+            amount = Math.Min(Math.Abs(square.velocity.x), Math.Abs(FrictionAmount));
 
-        amount *= Math.Sign(square.velocity.x);
+            amount *= Math.Sign(square.velocity.x);
 
-        square.AddForce(new Vector2(-amount, 0), ForceMode2D.Impulse);
+            square.AddForce(new Vector2(-amount, 0), ForceMode2D.Impulse);
 
         }
 
         //Jump
 
-        if(JumpBufferTimeCounter > 0 && CoyoteTimeCounter > 0)
+
+        if (JumpBufferTimeCounter > 0 && CoyoteTimeCounter > 0)
         {
             square.AddForce(new Vector2(0, Convert.ToSingle(JumpForce)), ForceMode2D.Impulse);
 
@@ -133,53 +180,24 @@ public class PlayerMouvement : MonoBehaviour
 
         }
 
-        //Checks If Player is Grounded (on the ground)
-
-        bool isGrounded()
-        {
-            return Physics2D.BoxCast(coll.bounds.center,coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
-        }
-
-        //Coyote Time
-
-
-        //Checks when was the last time the player was grounded
-
-        if (isGrounded() == true)
-        {
-            CoyoteTimeCounter = CoyoteTime;
-        }
-        else if (isGrounded() == false)
-        {
-            CoyoteTimeCounter -= Time.deltaTime; //Counts down time
-        }
-
-        //Checks when was the last time the player pressed space bar
-
-
-        if (Input.GetButtonDown("Jump"))
-        {
-            JumpBufferTimeCounter = JumpBufferTime;
-        }
-        else
-        {
-            JumpBufferTimeCounter -= Time.deltaTime;
-        }
 
         //Checks when was the last time the player has pressed spacebar
 
 
         //Edge Detection
 
-        if (square.velocity.y < 0 && PreviousVelocity > 0)
+        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0)
         {
+            Debug.Log(square.position.y);
+            /*
             NudgedPosition = square.position.y + 0.1F;
             square.position = new Vector2(square.position.x, NudgedPosition);
+            square.velocity = new Vector2(square.velocity.x, 0);
+            */
         }
 
         PreviousVelocity = square.velocity.y;
 
         //
-
     }
 }
