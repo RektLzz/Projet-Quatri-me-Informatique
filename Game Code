@@ -14,7 +14,6 @@ public class PlayerMouvement : MonoBehaviour
     [SerializeField] private double g = 25; //Gravitational strength of the directed gravity field
     [SerializeField] private double GravityMultiplier = 4; //Multiplies downward force when player stops pressing spacebar
     [SerializeField] private double JumpForce = 13;
-    bool DirectionGravity = true; //Do we apply Directional gravity ? false = no, true = yes
 
 
     //Initializing things for mouvement
@@ -55,6 +54,8 @@ public class PlayerMouvement : MonoBehaviour
     float Cooldown = 0.2F;
     float CooldownCounter;
     float BoostCoefficent = 4F;
+    float WidthTolerance = 0.3F;
+    bool EdgeDetection;
 
 
     //Defining all user input variables
@@ -81,6 +82,11 @@ public class PlayerMouvement : MonoBehaviour
         bool isGrounded()
         {
             return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
+        }
+
+        bool isCeilling()
+        {
+            return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.up, .1f, jumpableGround);
         }
 
 
@@ -113,8 +119,36 @@ public class PlayerMouvement : MonoBehaviour
 
         CooldownCounter -= Time.deltaTime;
 
+
+        //Horizontal Edge Detection
+
+        if (isCeilling())
+        {
+            square.position = new Vector2(square.position.x + WidthTolerance, square.position.y + 0.1F);
+            square.velocity = new Vector2(square.velocity.x, PreviousVelocity);
+
+            if (isCeilling())
+            {
+                square.position = new Vector2(square.position.x - 2*WidthTolerance, square.position.y);
+                square.velocity = new Vector2(square.velocity.x, PreviousVelocity);
+                if (isCeilling())
+                {
+                    square.position = new Vector2(square.position.x + WidthTolerance, square.position.y - 0.1F);
+                    square.velocity = new Vector2(square.velocity.x, 0);
+                }
+                else
+                {
+
+                }
+            }
+            else
+            {
+
+            }
+        }
     }
 
+     
 
 
     public void FixedUpdate()
@@ -193,17 +227,17 @@ public class PlayerMouvement : MonoBehaviour
 
         //Edge Detection
 
+        //Vertical Edge Detection
+
         if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0 && CooldownCounter < 0 && Input.GetAxisRaw("Horizontal") != 0)
         {
             Debug.Log(square.position.y);
             square.AddForce(new Vector2(square.velocity.x, BoostCoefficent), ForceMode2D.Impulse);
             CooldownCounter = Cooldown;
-           
+
         }
-        Debug.Log(CooldownCounter);
 
         PreviousVelocity = square.velocity.y;
 
-        //
     }
 }
