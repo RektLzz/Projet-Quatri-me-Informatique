@@ -2,66 +2,82 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System;
 
 public class PlayerMouvement : MonoBehaviour
 {
-    double xposition; //Initializing the "x" position variable of the square (that we can change)
-    double yposition; //Initializing the "y" position variable of the square (that we can change)
-    double xvelocity; //Initializing the velocity in "x" variable of the square (that we can change)
-    double yvelocity; //Initializing the velocity in "y" variable of the square (that we can change)
-
-    [SerializeField] private double g = 25; //Gravitational strength of the directed gravity field
-    [SerializeField] private double GravityMultiplier = 4; //Multiplies downward force when player stops pressing spacebar
-    [SerializeField] private double JumpForce = 13;
-
 
     //Initializing things for mouvement
     public static BoxCollider2D coll;
     public static Rigidbody2D square;
     [SerializeField] public LayerMask jumpableGround;
 
-    //Initializing Horizontal Mouvement Variables
-    double Acceleration = 13;
-    double Deceleration = 16;
-    double TargetSpeed;
-    double TopSpeed = 9;
-    double SpeedDif;
-    double AccelRate;
-    double Mouvement;
-    double Direction;
-    bool IsGrounded;
 
-    //Fall gravity
-    float FallGravityMultiplier = 2F;
+    //Clamped Fall Speed
+    float MaxFallSpeed = 20; //The terminal velocity of the player (literally)
 
-    //Clamp (cap) fall speed
-    float MaxFallSpeed = -15;
+    //Controller Inputs (xBox)
+    bool HoldingAButton;
+    bool HoldingBButton;
+    bool HoldingXButton;
+    bool HoldingYButton;
 
-    //Friction
-    float amount;
-    float FrictionAmount;
+    bool PressedAButton;
+    bool PressedBButton;
+    bool PressedXButton;
+    bool PressedYButton;
+
+    float xDirection; //Detects in which direction the player is going (in the x-axis between (-1;1))
+    float yDirection; //Detects in which direction the player is going (in the y-axis between (-1;1))
+
+    float DiscretDirectionX; //Detects in which direction the player is going discretly in the x-axis (-1, 0, 1)
+    float DiscretDirectionY; //Detects in which direction the player is going discretly in the y-axis (-1, 0, 1)
+
 
     //Coyote Time
-    float CoyoteTime = 0.15F; //How much time the player has to have pressed space bar since last grounded to jump
+    float CoyoteTime = 0.15F;
     float CoyoteTimeCounter;
     float JumpBufferTime = 0.2F;
     float JumpBufferTimeCounter;
 
-    //Edge Detection
-    float PreviousVelocity;
-    float NudgedPosition;
-    float Cooldown = 0.2F;
-    float CooldownCounter;
-    float BoostCoefficent = 4F;
-    float WidthTolerance = 0.3F;
-    bool EdgeDetection;
+    //Friction
+    float FrictionAmount = 4F; //The amount of friction the player is going to experience
+
+    //Gravity
+    float g = 25F; //The force of the gravitational attraction exerced on the player
+
+    //Grounded
+    bool isGrounded; //Detects wether the player is grounded (touching the ground) or not
+
+    //Holding Space
+    bool HoldingSpace; //Detects wether the player is holding space or not
+
+    //Jumping
+    float JumpForce = 13F; //The force of the jump of the player
+
+    //Left and Right Mouvement
+    float TopSpeed = 9F; //The maximum speed the player can achieve
+    float Acceleration = 50F; //The acceleration applied when the player moves in either direction (left or right)
+    float Deceleration = 5F; //The deceleration applied when the player stops moving in either direction (left or right)
+
+    //Player Facing
+    float PlayerFacingX;
+    float PlayerFacingY;
+
+    //Pressed Space
+    bool PressedSpace;
+
+    //Queuing Jumps
+    float JumpQueueTime = 0.5F;
+    float JumpQueueTimeCounter;
+
+    //Variable Jump
+    float NoSpaceBarGravityMultiplier = 5F; //Multiplies the gravity by a certain factor such that the player falls faster after letting go of space (bar)
+    float FallingGravityMultiplier = 2F; //Multiplies the gravity by a certain factor when the player falls
+    float GravityMultiplier; //Intermediate variable used to multiply the force of gravity by a certain factor
 
 
-    //Defining all user input variables
-    bool PressSpace;
-    bool HoldingSpace;
-    float ArrowKeyDirection;
 
     // Start is called before the first frame update
     void Start()
@@ -70,174 +86,150 @@ public class PlayerMouvement : MonoBehaviour
         coll = GetComponent<BoxCollider2D>();
         square.position = new Vector2(0, 0); //Assigning a initial position to the square (rigidbody)
         square.velocity = new Vector2(0, 0); //Assigning a initial velocity to the square (rigidbody)
+
     }
 
-    // Update is called once per frame
 
+    //All user inputs go into Update()
     public void Update()
     {
 
-        //Checks If Player is Grounded (on the ground)
+        //User Inputs
 
-        bool isGrounded()
-        {
-            return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
-        }
+        //Controller Inputs
 
-        bool isCeilling()
-        {
-            return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.up, .1f, jumpableGround);
-        }
+        //A,B,X,Y Buttons
+
+        PressedAButton = Input.GetButtonDown("Jump");
+        PressedBButton = Input.GetButtonDown("B");
+        PressedXButton = Input.GetButtonDown("Dash");
+        PressedYButton = Input.GetButtonDown("Y");
+
+        HoldingAButton = Input.GetButton("Jump");
+        HoldingBButton = Input.GetButton("B");
+        HoldingXButton = Input.GetButton("Dash");
+        HoldingYButton = Input.GetButton("Y");
+
+        //Joystick direction
+
+        xDirection = Input.GetAxisRaw("Horizontal");
+        yDirection = Input.GetAxisRaw("Vertical");
+
+        DiscretDirectionX = Math.Sign(xDirection);
+        DiscretDirectionY = Math.Sign(yDirection);
+
+        //Other Inputs
+
+        HoldingSpace = Input.GetButton("Jump");
+        PressedSpace = Input.GetButtonDown("Jump");
+        PlayerFacingX = Math.Sign(square.velocity.x);
+        isGrounded = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
 
 
         //Coyote Time
 
-        //Checks when was the last time the player was grounded
-
-        if (isGrounded() == true)
+        if (isGrounded == true)
         {
             CoyoteTimeCounter = CoyoteTime;
         }
-        else if (isGrounded() == false)
+        else if (isGrounded == false)
         {
-            CoyoteTimeCounter -= Time.deltaTime; //Counts down time
+            CoyoteTimeCounter -= Time.deltaTime;
         }
 
 
-        //Checks when was the last time the player pressed space bar
+        //Jump Buffer Time
 
-        if (Input.GetButtonDown("Jump"))
+        if (PressedSpace == true)
         {
             JumpBufferTimeCounter = JumpBufferTime;
         }
-        else
+        else if (PressedSpace == false)
         {
             JumpBufferTimeCounter -= Time.deltaTime;
         }
 
-        //Edge detection
 
-        CooldownCounter -= Time.deltaTime;
+        //Jump Queuing
 
-
-        //Horizontal Edge Detection
-
-        if (isCeilling())
+        if (PressedSpace == true && isGrounded == false)
         {
-            square.position = new Vector2(square.position.x + WidthTolerance, square.position.y + 0.1F);
-            square.velocity = new Vector2(square.velocity.x, PreviousVelocity);
-
-            if (isCeilling())
-            {
-                square.position = new Vector2(square.position.x - 2*WidthTolerance, square.position.y);
-                square.velocity = new Vector2(square.velocity.x, PreviousVelocity);
-                if (isCeilling())
-                {
-                    square.position = new Vector2(square.position.x + WidthTolerance, square.position.y - 0.1F);
-                    square.velocity = new Vector2(square.velocity.x, 0);
-                }
-                else
-                {
-
-                }
-            }
-            else
-            {
-
-            }
+            JumpQueueTimeCounter = JumpQueueTime;
         }
+        else if (PressedSpace == false && isGrounded == false)
+        {
+            JumpQueueTimeCounter -= Time.deltaTime;
+        }
+
     }
 
-     
 
-
+    //All physics goes into FixedUpdate()
     public void FixedUpdate()
     {
-        //Variable Jump
 
-        if (Input.GetKey("space") == false && square.velocity.y > 0)
+        //Gravity
+
+        square.AddForce(new Vector2(0, -g * GravityMultiplier));
+
+
+        //Jumping
+
+        if (CoyoteTimeCounter > 0 && JumpBufferTimeCounter > 0)
         {
-            square.AddForce(new Vector2(0, -Convert.ToSingle(g * GravityMultiplier)));
-
-            CoyoteTimeCounter = 0f; //Once we stop pressing spacebar, the coyote time goes back to 0
-
-        }
-        else
-        {
-            square.AddForce(new Vector2(0, -Convert.ToSingle(g * FallGravityMultiplier)));
-        }
-
-        //Clamping (capping) fall speed
-        if (square.velocity.y <= MaxFallSpeed)
-        {
-            square.velocity = new Vector2(square.velocity.x, MaxFallSpeed);
-        }
-
-
-        //Horizontal mouvement
-
-        if (Input.GetAxisRaw("Horizontal") != 0)
-        {
-
-
-            Direction = Input.GetAxisRaw("Horizontal");
-
-            TargetSpeed = Direction * TopSpeed;
-
-            SpeedDif = TargetSpeed - Convert.ToDouble(square.velocity.x);
-
-            AccelRate = (Math.Abs(TargetSpeed) > 0f) ? Acceleration : Deceleration;
-
-            Mouvement = Math.Pow(Math.Abs(SpeedDif) * AccelRate, 0.96) * Math.Sign(SpeedDif);
-
-            square.AddForce(new Vector2(Convert.ToSingle(Mouvement), 0));
-
-
-        }
-
-        //Friction
-
-        if (Input.GetAxisRaw("Horizontal") == 0)
-        {
-
-            FrictionAmount = 0.1F;
-
-            amount = Math.Min(Math.Abs(square.velocity.x), Math.Abs(FrictionAmount));
-
-            amount *= Math.Sign(square.velocity.x);
-
-            square.AddForce(new Vector2(-amount, 0), ForceMode2D.Impulse);
-
-        }
-
-        //Jump
-
-
-        if (JumpBufferTimeCounter > 0 && CoyoteTimeCounter > 0)
-        {
-            square.AddForce(new Vector2(0, Convert.ToSingle(JumpForce)), ForceMode2D.Impulse);
-
+            square.velocity = new Vector2(square.velocity.x, 0);
+            square.AddForce(new Vector2(0, JumpForce), ForceMode2D.Impulse);
             JumpBufferTimeCounter = 0;
 
         }
 
 
-        //Checks when was the last time the player has pressed spacebar
+        //Variational Jump
 
-
-        //Edge Detection
-
-        //Vertical Edge Detection
-
-        if (square.velocity.y < 0 && PreviousVelocity > 0 && square.velocity.x == 0 && CooldownCounter < 0 && Input.GetAxisRaw("Horizontal") != 0)
+        if (HoldingSpace && square.velocity.y >= 0)
         {
-            Debug.Log(square.position.y);
-            square.AddForce(new Vector2(square.velocity.x, BoostCoefficent), ForceMode2D.Impulse);
-            CooldownCounter = Cooldown;
-
+            GravityMultiplier = 1;
+        }
+        else if (HoldingSpace == false && square.velocity.y >= 0)
+        {
+            GravityMultiplier = NoSpaceBarGravityMultiplier;
+        } 
+        else
+        {
+            GravityMultiplier = FallingGravityMultiplier;
         }
 
-        PreviousVelocity = square.velocity.y;
+
+        //Left and Right Mouvement
+
+        if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
+        {
+            square.AddForce(new Vector2(xDirection * Acceleration, 0));
+        }
+        else
+        {
+            square.AddForce(new Vector2(-Deceleration, 0) * square.velocity.x);
+        }
+        
+
+        //Friction
+
+        if (xDirection == 0)
+        {
+            square.AddForce(new Vector2(-PlayerFacingX * FrictionAmount, 0));
+        }
+
+
+        //Clamped Fall Speed
+
+        if (square.velocity.y < -MaxFallSpeed)
+        {
+            square.velocity = new Vector2(square.velocity.x, -MaxFallSpeed);
+        }
+
+        
+        //Dash
+
 
     }
 }
