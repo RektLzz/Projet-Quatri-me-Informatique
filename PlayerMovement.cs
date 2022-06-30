@@ -14,6 +14,12 @@ public class PlayerMouvement : MonoBehaviour
     [SerializeField] public LayerMask jumpableGround;
 
 
+    //Box Collidiers
+    bool isGrounded; //Detects wether the player is grounded (touching the ground) or not
+    bool onCeilling;
+    bool onLeftWall;
+    bool onRightWall;
+
     //Clamped Fall Speed
     float MaxFallSpeed = 20; //The terminal velocity of the player (literally)
 
@@ -41,20 +47,36 @@ public class PlayerMouvement : MonoBehaviour
     float JumpBufferTime = 0.2F;
     float JumpBufferTimeCounter;
 
+    //Dash
+    Vector2 DashDirection; //Gets the direction of the dash
+    float DashVelocity = 20F; // The speed of the dash
+    float DashTime = 0.15F; //Duration of the dash
+    float DashTimeCounter; //Timer used for the length (in seconds) of the dash
+    float DashCooldown = 0.0833F; //(1/12th of a second or 5 frames at 60fps)
+    float DashCooldownCounter; //Timer used for the Dash Cooldown
+    bool CanDash; //Looks wether the player is allowed to dash
+    bool isDashing; //Looks wether the player is still dashing
+    bool wasDashing; //Looks wether the player was dashing one frame (or update) before
+    bool NotDashingAnymore; //Looks wether the player was dashing and is still not grounded
+
+    //Edge Detection (Vertical)
+
+
+    //Edge Detection (Horizontal)
+    
+
     //Friction
     float FrictionAmount = 4F; //The amount of friction the player is going to experience
+    float StopFriction = 0.1F; //Stops friction at the designed speed (0.1 is good)
 
     //Gravity
     float g = 25F; //The force of the gravitational attraction exerced on the player
 
-    //Grounded
-    bool isGrounded; //Detects wether the player is grounded (touching the ground) or not
-
     //Holding Space
-    bool HoldingSpace; //Detects wether the player is holding space or not
+    bool HoldingJump; //Detects wether the player is holding space or not
 
     //Jumping
-    float JumpForce = 13F; //The force of the jump of the player
+    float JumpForce = 14F; //The force of the jump of the player
 
     //Left and Right Mouvement
     float TopSpeed = 9F; //The maximum speed the player can achieve
@@ -62,21 +84,23 @@ public class PlayerMouvement : MonoBehaviour
     float Deceleration = 5F; //The deceleration applied when the player stops moving in either direction (left or right)
 
     //Player Facing
-    float PlayerFacingX;
-    float PlayerFacingY;
+    float PlayerFacingX; //Direction the player is looking in the x-direction
+    float PlayerFacingY; //Direction the player is looking in the y-direction
 
     //Pressed Space
-    bool PressedSpace;
-
-    //Queuing Jumps
-    float JumpQueueTime = 0.5F;
-    float JumpQueueTimeCounter;
+    bool PressedJump; //Detects wether the player has pressed jump
 
     //Variable Jump
     float NoSpaceBarGravityMultiplier = 5F; //Multiplies the gravity by a certain factor such that the player falls faster after letting go of space (bar)
     float FallingGravityMultiplier = 2F; //Multiplies the gravity by a certain factor when the player falls
+    float DashingGravity = 5F;
     float GravityMultiplier; //Intermediate variable used to multiply the force of gravity by a certain factor
 
+    /*
+    //Temporary to get dash distance
+    Vector2 StartPos;
+    Vector2 EndPos;
+    */
 
 
     // Start is called before the first frame update
@@ -120,10 +144,13 @@ public class PlayerMouvement : MonoBehaviour
 
         //Other Inputs
 
-        HoldingSpace = Input.GetButton("Jump");
-        PressedSpace = Input.GetButtonDown("Jump");
+        HoldingJump = Input.GetButton("Jump");
+        PressedJump = Input.GetButtonDown("Jump");
         PlayerFacingX = Math.Sign(square.velocity.x);
         isGrounded = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
+        onCeilling = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.up, .1f, jumpableGround);
+        onLeftWall = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.left, .1f, jumpableGround);
+        onRightWall = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.right, .1f, jumpableGround);
 
 
         //Coyote Time
@@ -140,26 +167,47 @@ public class PlayerMouvement : MonoBehaviour
 
         //Jump Buffer Time
 
-        if (PressedSpace == true)
+        if (PressedJump == true)
         {
             JumpBufferTimeCounter = JumpBufferTime;
         }
-        else if (PressedSpace == false)
+        else if (PressedJump == false)
         {
             JumpBufferTimeCounter -= Time.deltaTime;
         }
 
+        
+        //Dash Time
 
-        //Jump Queuing
+        if (isDashing == false)
+        {
+            DashTimeCounter = DashTime;
+        }
+        else
+        {
+            DashTimeCounter -= Time.deltaTime;
+        }
 
-        if (PressedSpace == true && isGrounded == false)
+
+        //Dash Cooldown
+
+        if (isGrounded == true)
         {
-            JumpQueueTimeCounter = JumpQueueTime;
+            DashCooldownCounter -= Time.deltaTime;
         }
-        else if (PressedSpace == false && isGrounded == false)
+        else
         {
-            JumpQueueTimeCounter -= Time.deltaTime;
+            DashCooldownCounter = DashCooldown;
         }
+
+
+        //Vertical Edge Detection (When dashing horizontally for example)
+
+        if ((onLeftWall || onRightWall) && isDashing)
+        {
+
+        }
+
 
     }
 
@@ -186,11 +234,11 @@ public class PlayerMouvement : MonoBehaviour
 
         //Variational Jump
 
-        if (HoldingSpace && square.velocity.y >= 0)
+        if (HoldingJump && square.velocity.y >= 0)
         {
             GravityMultiplier = 1;
         }
-        else if (HoldingSpace == false && square.velocity.y >= 0)
+        else if (HoldingJump == false && square.velocity.y >= 0)
         {
             GravityMultiplier = NoSpaceBarGravityMultiplier;
         } 
@@ -199,10 +247,15 @@ public class PlayerMouvement : MonoBehaviour
             GravityMultiplier = FallingGravityMultiplier;
         }
 
+        if (NotDashingAnymore == true && square.velocity.y > 0)
+        {
+            GravityMultiplier = DashingGravity;
+        }
 
-        //Left and Right Mouvement
 
-        if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
+            //Left and Right Mouvement
+
+            if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
         {
             square.AddForce(new Vector2(xDirection * Acceleration, 0));
         }
@@ -214,9 +267,14 @@ public class PlayerMouvement : MonoBehaviour
 
         //Friction
 
-        if (xDirection == 0)
+        if (xDirection == 0 && Math.Abs(square.velocity.x) > StopFriction)
         {
             square.AddForce(new Vector2(-PlayerFacingX * FrictionAmount, 0));
+        }
+        
+        if (xDirection == 0 && Math.Abs(square.velocity.x) <= StopFriction)
+        {
+            square.velocity = new Vector2(0, square.velocity.y);
         }
 
 
@@ -230,6 +288,44 @@ public class PlayerMouvement : MonoBehaviour
         
         //Dash
 
+        if ((DiscretDirectionX != 0 || DiscretDirectionY != 0) && CanDash == true && HoldingXButton == true)
+        {
+            //StartPos = new Vector2(square.position.x, square.position.y);
+
+            DashDirection = new Vector2(DiscretDirectionX, DiscretDirectionY).normalized;  
+            isDashing = true;
+            CanDash = false;
+        }
+
+        wasDashing = isDashing;
+
+        if (isDashing == true && DashTimeCounter > 0)
+        {
+            square.velocity = new Vector2(DashDirection.x * DashVelocity, DashDirection.y * DashVelocity);
+            square.AddForce(new Vector2(0, g * GravityMultiplier));
+        }
+        else
+        {
+            isDashing = false;
+        }
+
+        if (wasDashing != isDashing)
+        {
+            NotDashingAnymore = true;
+            //EndPos = new Vector2(square.position.x, square.position.y);
+        }
+        else if (square.velocity.y <= 0)
+        {
+            NotDashingAnymore = false;
+        }
+
+        if (isGrounded == true && DashCooldownCounter < 0 && isDashing == false)
+        {
+            CanDash = true;
+            DashTimeCounter = DashTime;
+        }
+
+        //Debug.Log((EndPos - StartPos).magnitude);
 
     }
 }
