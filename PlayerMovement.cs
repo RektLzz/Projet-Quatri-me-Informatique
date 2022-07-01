@@ -60,7 +60,10 @@ public class PlayerMouvement : MonoBehaviour
     bool NotDashingAnymore; //Looks wether the player was dashing and is still not grounded
 
     //Edge Detection (Vertical)
-
+    float VerticalEdgeThreshold = 0.3F;
+    bool WallCollisionUp;
+    bool WallCollisionDown;
+    Vector2 Amogus;
 
     //Edge Detection (Horizontal)
     
@@ -93,6 +96,7 @@ public class PlayerMouvement : MonoBehaviour
     //Variable Jump
     float NoSpaceBarGravityMultiplier = 5F; //Multiplies the gravity by a certain factor such that the player falls faster after letting go of space (bar)
     float FallingGravityMultiplier = 2F; //Multiplies the gravity by a certain factor when the player falls
+    float JumpVelocityFallOff = 4F; //Starts downwards gravity multiplier a bit before it comes to it's apex making the jump sharper
     float DashingGravity = 5F;
     float GravityMultiplier; //Intermediate variable used to multiply the force of gravity by a certain factor
 
@@ -200,15 +204,6 @@ public class PlayerMouvement : MonoBehaviour
             DashCooldownCounter = DashCooldown;
         }
 
-
-        //Vertical Edge Detection (When dashing horizontally for example)
-
-        if ((onLeftWall || onRightWall) && isDashing)
-        {
-
-        }
-
-
     }
 
 
@@ -234,7 +229,7 @@ public class PlayerMouvement : MonoBehaviour
 
         //Variational Jump
 
-        if (HoldingJump && square.velocity.y >= 0)
+        if (HoldingJump && square.velocity.y > JumpVelocityFallOff)
         {
             GravityMultiplier = 1;
         }
@@ -253,9 +248,9 @@ public class PlayerMouvement : MonoBehaviour
         }
 
 
-            //Left and Right Mouvement
+        //Left and Right Mouvement
 
-            if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
+        if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
         {
             square.AddForce(new Vector2(xDirection * Acceleration, 0));
         }
@@ -319,13 +314,13 @@ public class PlayerMouvement : MonoBehaviour
             NotDashingAnymore = false;
         }
 
-        if (isGrounded == true && DashCooldownCounter < 0 && isDashing == false)
+        if (isGrounded == true && DashCooldownCounter < 0 && isDashing == false && HoldingXButton == false)
         {
             CanDash = true;
             DashTimeCounter = DashTime;
         }
 
-        //Debug.Log((EndPos - StartPos).magnitude);
+        //Debug.Log((EndPos - StartPos).magnitude)
 
     }
 }
