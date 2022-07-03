@@ -21,19 +21,34 @@ public class PlayerMouvement : MonoBehaviour
     bool onRightWall;
 
     //Clamped Fall Speed
-    float MaxFallSpeed = 20; //The terminal velocity of the player (literally)
+    float MaxFallSpeed = 20F; //The terminal velocity of the player (literally)
+
+    //Climbing
+    bool onWall;
+    bool isGripingOnWall;
+    bool Climbing;
+    bool WallJump;
+    float ClimbingVelocity = 5F; //The speed of a player during its slow down while griping a wall (wall friction)
+    float WallJumpTime = 0.1F;
+    float WallJumpTimeCounter;
+    float WallJumpDirectionX;
+    float TopWallDirectionX; //Which direction the player is sent when on top of a wall
+    float WallJumpForce = 14F;
+    float ClimbingTime = 12F;
+    float ClimbingTimeCounter;
+    float VerticalWallJumpForce = 8F;
+    bool ClimbJump;
 
     //Controller Inputs (xBox)
-    bool HoldingAButton;
-    bool HoldingBButton;
-    bool HoldingXButton;
-    bool HoldingYButton;
+    bool HoldingJumpButton;
+    bool HoldingDashButton;
+    bool HoldingClimbButton;
 
-    bool PressedAButton;
-    bool PressedBButton;
-    bool PressedXButton;
-    bool PressedYButton;
+    bool PressedJumpButton;
+    bool PressedDashButton;
+    bool PressedClimbButton;
 
+    Vector2 Direction;
     float xDirection; //Detects in which direction the player is going (in the x-axis between (-1;1))
     float yDirection; //Detects in which direction the player is going (in the y-axis between (-1;1))
 
@@ -107,6 +122,25 @@ public class PlayerMouvement : MonoBehaviour
     */
 
 
+    //Unity's New Input System
+    PlayerControls playerControls;
+
+    private void Awake()
+    {
+        playerControls = new PlayerControls();
+    }
+
+    private void OnEnable()
+    {
+        playerControls.Enable();
+    }
+
+
+    private void OnDisable()
+    {
+        playerControls.Disable();
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -128,33 +162,63 @@ public class PlayerMouvement : MonoBehaviour
 
         //A,B,X,Y Buttons
 
-        PressedAButton = Input.GetButtonDown("Jump");
-        PressedBButton = Input.GetButtonDown("B");
-        PressedXButton = Input.GetButtonDown("Dash");
-        PressedYButton = Input.GetButtonDown("Y");
+        PressedJumpButton = playerControls.Player.PressedJump.ReadValue<float>() > 0;
+        PressedDashButton = playerControls.Player.PressedDash.ReadValue<float>() > 0;
+        PressedClimbButton = playerControls.Player.PressedClimb.ReadValue<float>() > 0;
 
-        HoldingAButton = Input.GetButton("Jump");
-        HoldingBButton = Input.GetButton("B");
-        HoldingXButton = Input.GetButton("Dash");
-        HoldingYButton = Input.GetButton("Y");
+
+        HoldingJumpButton = playerControls.Player.Jump.ReadValue<float>() > 0;
+        HoldingDashButton = playerControls.Player.Dash.ReadValue<float>() > 0;
+        HoldingClimbButton = playerControls.Player.Climb.ReadValue<float>() > 0;
 
         //Joystick direction
 
-        xDirection = Input.GetAxisRaw("Horizontal");
-        yDirection = Input.GetAxisRaw("Vertical");
+        Direction = playerControls.Player.Joystick.ReadValue<Vector2>();
+        xDirection = Direction.x;
+        yDirection = Direction.y;
 
-        DiscretDirectionX = Math.Sign(xDirection);
-        DiscretDirectionY = Math.Sign(yDirection);
+        if (Math.Abs(xDirection) < 0.5)
+        {
+            DiscretDirectionX = 0;
+        }
+        else
+        {
+            DiscretDirectionX = Math.Sign(xDirection);
+        }
+
+
+        if (Math.Abs(yDirection) < 0.5)
+        {
+            DiscretDirectionY = 0;
+        }
+        else
+        {
+            DiscretDirectionY = Math.Sign(yDirection);
+        }
 
         //Other Inputs
 
-        HoldingJump = Input.GetButton("Jump");
-        PressedJump = Input.GetButtonDown("Jump");
         PlayerFacingX = Math.Sign(square.velocity.x);
         isGrounded = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
         onCeilling = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.up, .1f, jumpableGround);
         onLeftWall = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.left, .1f, jumpableGround);
         onRightWall = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.right, .1f, jumpableGround);
+        onWall = (onLeftWall || onRightWall);
+        isGripingOnWall = (((onLeftWall && DiscretDirectionX == -1) || (onRightWall && DiscretDirectionX == 1)) && square.velocity.y < 0);
+
+        //Variables Update
+
+        if (onLeftWall)
+        {
+            WallJumpDirectionX = 1;
+            TopWallDirectionX = -1;
+        }
+
+        if (onRightWall)
+        {
+            WallJumpDirectionX = -1;
+            TopWallDirectionX = 1;
+        }
 
 
         //Coyote Time
@@ -171,16 +235,16 @@ public class PlayerMouvement : MonoBehaviour
 
         //Jump Buffer Time
 
-        if (PressedJump == true)
+        if (PressedJumpButton == true)
         {
             JumpBufferTimeCounter = JumpBufferTime;
         }
-        else if (PressedJump == false)
+        else if (PressedJumpButton == false)
         {
             JumpBufferTimeCounter -= Time.deltaTime;
         }
 
-        
+
         //Dash Time
 
         if (isDashing == false)
@@ -204,12 +268,40 @@ public class PlayerMouvement : MonoBehaviour
             DashCooldownCounter = DashCooldown;
         }
 
+
+        //Wall Jump Duration
+
+        if (WallJump == true)
+        {
+            WallJumpTimeCounter -= Time.deltaTime;
+        }
+        else
+        {
+            WallJumpTimeCounter = -1;
+        }
+
+        //Climbing Duration
+
+        if (Climbing == true)
+        {
+            ClimbingTimeCounter -= Time.deltaTime;
+        }
+        
+        if (isGrounded == true)
+        {
+            ClimbingTimeCounter = ClimbingTime;
+        }
+
+
     }
 
 
     //All physics goes into FixedUpdate()
     public void FixedUpdate()
     {
+
+
+
 
         //Gravity
 
@@ -229,14 +321,14 @@ public class PlayerMouvement : MonoBehaviour
 
         //Variational Jump
 
-        if (HoldingJump && square.velocity.y > JumpVelocityFallOff)
+        if (HoldingJumpButton && square.velocity.y > JumpVelocityFallOff)
         {
             GravityMultiplier = 1;
         }
-        else if (HoldingJump == false && square.velocity.y >= 0)
+        else if (HoldingJumpButton == false && square.velocity.y >= 0)
         {
             GravityMultiplier = NoSpaceBarGravityMultiplier;
-        } 
+        }
         else
         {
             GravityMultiplier = FallingGravityMultiplier;
@@ -250,24 +342,24 @@ public class PlayerMouvement : MonoBehaviour
 
         //Left and Right Mouvement
 
-        if (xDirection != 0 && Math.Abs(square.velocity.x) < TopSpeed) 
+        if (DiscretDirectionX != 0 && Math.Abs(square.velocity.x) < TopSpeed && (isGripingOnWall == false && Climbing == false) && WallJumpTimeCounter < 0)
         {
-            square.AddForce(new Vector2(xDirection * Acceleration, 0));
+            square.AddForce(new Vector2(DiscretDirectionX * Acceleration, 0));
         }
         else
         {
             square.AddForce(new Vector2(-Deceleration, 0) * square.velocity.x);
         }
-        
+
 
         //Friction
 
-        if (xDirection == 0 && Math.Abs(square.velocity.x) > StopFriction)
+        if (DiscretDirectionX == 0 && Math.Abs(square.velocity.x) > StopFriction)
         {
             square.AddForce(new Vector2(-PlayerFacingX * FrictionAmount, 0));
         }
-        
-        if (xDirection == 0 && Math.Abs(square.velocity.x) <= StopFriction)
+
+        if (DiscretDirectionX == 0 && Math.Abs(square.velocity.x) <= StopFriction)
         {
             square.velocity = new Vector2(0, square.velocity.y);
         }
@@ -280,14 +372,14 @@ public class PlayerMouvement : MonoBehaviour
             square.velocity = new Vector2(square.velocity.x, -MaxFallSpeed);
         }
 
-        
+
         //Dash
 
-        if ((DiscretDirectionX != 0 || DiscretDirectionY != 0) && CanDash == true && HoldingXButton == true)
+        if ((DiscretDirectionX != 0 || DiscretDirectionY != 0) && CanDash == true && HoldingDashButton == true)
         {
             //StartPos = new Vector2(square.position.x, square.position.y);
 
-            DashDirection = new Vector2(DiscretDirectionX, DiscretDirectionY).normalized;  
+            DashDirection = new Vector2(DiscretDirectionX, DiscretDirectionY).normalized;
             isDashing = true;
             CanDash = false;
         }
@@ -314,13 +406,64 @@ public class PlayerMouvement : MonoBehaviour
             NotDashingAnymore = false;
         }
 
-        if (isGrounded == true && DashCooldownCounter < 0 && isDashing == false && HoldingXButton == false)
+        if (isGrounded == true && DashCooldownCounter < 0 && isDashing == false && HoldingDashButton == false)
         {
             CanDash = true;
             DashTimeCounter = DashTime;
         }
 
         //Debug.Log((EndPos - StartPos).magnitude)
+
+        //Climbing
+
+        if (isGripingOnWall)
+        {
+            square.velocity = new Vector2(0, -ClimbingVelocity);
+            square.AddForce(new Vector2(0, g * GravityMultiplier));
+        }
+
+        if (onWall && HoldingClimbButton)
+        {
+            Climbing = true;
+        }
+        else
+        {
+            Climbing = false;
+        }
+
+
+        if (Climbing == true && HoldingClimbButton && onWall && ClimbingTimeCounter > 0)
+        {
+            square.velocity = new Vector2(0, DiscretDirectionY * ClimbingVelocity);
+            square.AddForce(new Vector2(0, g * GravityMultiplier));
+        }
+        else if (Climbing == true && HoldingClimbButton && onWall && ClimbingTimeCounter < 0)
+        {
+            square.velocity = new Vector2(0, -ClimbingVelocity);
+            square.AddForce(new Vector2(0, g * GravityMultiplier));
+        }
+        else
+        {
+            Climbing = false;
+        }
+
+
+        if ((isGripingOnWall && PressedJumpButton) || (Climbing && DiscretDirectionX == WallJumpDirectionX && DiscretDirectionY == 0 && PressedJumpButton))
+        {
+            square.velocity = new Vector2(WallJumpDirectionX, 1) * WallJumpForce;
+            WallJumpTimeCounter = WallJumpTime;
+            WallJump = true;
+        }
+
+
+        if (WallJumpTimeCounter <= 0)
+        {
+            WallJump = false;
+        }
+
+
+
+        Debug.Log(WallJumpDirectionX);
 
     }
 }
