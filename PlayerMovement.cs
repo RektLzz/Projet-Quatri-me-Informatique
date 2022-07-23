@@ -28,6 +28,7 @@ public class PlayerMouvement : MonoBehaviour
     bool isGripingOnWall;
     bool Climbing;
     bool WallJump;
+    bool WallJumped;
     float ClimbingVelocity = 5F; //The speed of a player during its slow down while griping a wall (wall friction)
     float WallJumpTime = 0.1F;
     float WallJumpTimeCounter;
@@ -37,7 +38,6 @@ public class PlayerMouvement : MonoBehaviour
     float ClimbingTime = 12F;
     float ClimbingTimeCounter;
     float VerticalWallJumpForce = 8F;
-    bool ClimbJump;
 
     //Controller Inputs (xBox)
     bool HoldingJumpButton;
@@ -113,6 +113,7 @@ public class PlayerMouvement : MonoBehaviour
     float FallingGravityMultiplier = 2F; //Multiplies the gravity by a certain factor when the player falls
     float JumpVelocityFallOff = 4F; //Starts downwards gravity multiplier a bit before it comes to it's apex making the jump sharper
     float DashingGravity = 5F;
+    float WallJumpGravity = 2F;
     float GravityMultiplier; //Intermediate variable used to multiply the force of gravity by a certain factor
 
     /*
@@ -334,6 +335,11 @@ public class PlayerMouvement : MonoBehaviour
             GravityMultiplier = FallingGravityMultiplier;
         }
 
+        if (WallJumped == true && square.velocity.y >= 0)
+        {
+            GravityMultiplier = WallJumpGravity;
+        }
+
         if (NotDashingAnymore == true && square.velocity.y > 0)
         {
             GravityMultiplier = DashingGravity;
@@ -452,6 +458,7 @@ public class PlayerMouvement : MonoBehaviour
         {
             square.velocity = new Vector2(WallJumpDirectionX, 1) * WallJumpForce;
             WallJumpTimeCounter = WallJumpTime;
+            WallJumped = true;
             WallJump = true;
         }
 
@@ -461,9 +468,10 @@ public class PlayerMouvement : MonoBehaviour
             WallJump = false;
         }
 
-
-
-        Debug.Log(WallJumpDirectionX);
+        if (isGrounded == true && square.velocity.y >= 0)
+        {
+            WallJumped = false;
+        }
 
     }
 }
