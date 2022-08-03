@@ -1,14 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using System;
-using DitzeGames.Effects;
 using XInputDotNetPure;
+using Cinemachine;
 
 public class PlayerMovement : MonoBehaviour
 {
     #region
+    HitBox hitBox;
 
     //controller
     PlayerIndex playerindex;
@@ -23,7 +23,7 @@ public class PlayerMovement : MonoBehaviour
 
     //Initializing Horizontal Mouvement Variables
     [Header("Horizontal movement")]
-    [Range(10,20)] private float Acceleration = 50f;
+    [Range(10, 20)] private float Acceleration = 50f;
     [Range(15, 25)] private float Deceleration = 22f;
     float TargetSpeed;
     [Range(6, 20)] private float TopSpeed = 9.4f;
@@ -74,7 +74,7 @@ public class PlayerMovement : MonoBehaviour
     //Calling objects
     BoxCollider2D coll;
     SpriteRenderer sprite;
-    Rigidbody2D square;
+    public Rigidbody2D square;
     [SerializeField] public LayerMask jumpableGround;
     private Animator anim;
     public BoxCollider2D ceillingBounds;
@@ -90,8 +90,8 @@ public class PlayerMovement : MonoBehaviour
     float DashTimeCounter; //Timer used for the length (in seconds) of the dash
     float DashCooldown = 0; //(1/12th of a second or 5 frames at 60fps)
     float DashCooldownCounter; //Timer used for the Dash Cooldown
-    bool CanDash; //Looks wether the player is allowed to dash
-    bool isDashing; //Looks wether the player is still dashing
+    public bool CanDash; //Looks wether the player is allowed to dash
+    public bool isDashing; //Looks wether the player is still dashing
     bool wasDashing; //Looks wether the player was dashing one frame (or update) before
     bool NotDashingAnymore; //Looks wether the player was dashing and is still not grounded
     #endregion
@@ -111,7 +111,7 @@ public class PlayerMovement : MonoBehaviour
     float yDirection;
 
     float DiscretDirectionX;
-    float DiscretDirectionY;
+    public float DiscretDirectionY;
 
     Vector2 leftStick;
 
@@ -120,24 +120,34 @@ public class PlayerMovement : MonoBehaviour
 
     public Ghost ghost;
 
+    [SerializeField] CinemachineImpulseSource _source;
+
+    public void Shake()
+    {
+        _source.GenerateImpulse();
+    }
+
     // Start is called before the first frame update
     public void Start()
 
     {
         #region
+     
         square = GetComponent<Rigidbody2D>();
         sprite = GetComponent<SpriteRenderer>();
         coll = GetComponent<BoxCollider2D>();
         anim = GetComponent<Animator>();
         ceillingBounds = GetComponent<BoxCollider2D>();
+
         #endregion
     }
+
+   
 
     // Update is called once per frame
     public void Update()
 
     {
-
         //User Inputs
 
         //Controller Inputs
@@ -189,14 +199,12 @@ public class PlayerMovement : MonoBehaviour
                 _isDashing = true;
                 _canDash = false;
                 _dashingDir = new Vector2(dirX, dirY);
-
                 if(_dashingDir == Vector2.zero)
                 {
                     _isDashing = false;
                 }
                 StartCoroutine(StopDashing());
             }
-
             if(_isDashing)
             {
                 CameraEffects.ShakeOnce();
@@ -205,7 +213,6 @@ public class PlayerMovement : MonoBehaviour
                 square.velocity = _dashingDir.normalized * _dashingVelocity;
                 return;
             }
-
             if (isTouchingGround)
                 _canDash = true;
             */
@@ -219,7 +226,7 @@ public class PlayerMovement : MonoBehaviour
         }
         else if (!isTouchingGround)
         {
-            CoyoteTimeCounter -= Time.deltaTime; 
+            CoyoteTimeCounter -= Time.deltaTime;
         }
         #endregion
 
@@ -239,23 +246,18 @@ public class PlayerMovement : MonoBehaviour
 
         CooldownCounter -= Time.deltaTime;
 
-        if (isDead())
-        {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex * 0);
-
-        }
 
         //Calling Methods
         upCollision();
         IsGrounded();
 
         //Setting up animations
-        anim.SetBool("isRunning", dirX != 0);
-        anim.SetBool("grounded", isTouchingGround);
+        anim.SetBool("isRunning", dirX != 0 );
+        anim.SetBool("grounded", isTouchingGround && !HoldingSpace);
         anim.SetBool("isFalling", square.velocity.y < 0 && !isTouchingGround);
         anim.SetBool("isRising", square.velocity.y > 0 && !isTouchingGround);
-        anim.SetBool("smallJump", GravityMultiplier!= 1 && CanDash && !HoldingSpace && !isTouchingGround && square.velocity.y != -16.136f) ;
-     
+        anim.SetBool("smallJump", GravityMultiplier != 1 && CanDash && !HoldingSpace && !isTouchingGround && square.velocity.y != -16.136f);
+      
 
         //Impact particles when landing
         #region
@@ -301,7 +303,7 @@ public class PlayerMovement : MonoBehaviour
 
 
         //Vertical Edge Detection (When dashing horizontally for example)
-      
+
 
     }
 
@@ -320,11 +322,6 @@ public class PlayerMovement : MonoBehaviour
             }
     }
 
-    //Checks if the player is dead
-    bool isDead()
-    {
-        return square.position.y <= -10;
-    }
 
     //Flips the sprite of the character
     public void Flip()
@@ -334,7 +331,7 @@ public class PlayerMovement : MonoBehaviour
         gameObject.transform.localScale = currentScale;
 
         facingRight = !facingRight;
-    }   
+    }
 
     //Check if the player is on the ground
     public void IsGrounded()
@@ -349,10 +346,11 @@ public class PlayerMovement : MonoBehaviour
         {
             isTouchingGround = false;
         }
-  
+
     }
 
-    public void FixedUpdate() {
+    public void FixedUpdate()
+    {
 
         IsGrounded();
 
@@ -427,11 +425,11 @@ public class PlayerMovement : MonoBehaviour
         #region
         if ((DiscretDirectionX != 0 || DiscretDirectionY != 0) && CanDash == true && HoldingXButton == true)
         {
-            
+
             DashDirection = new Vector2(DiscretDirectionX, DiscretDirectionY).normalized;
             isDashing = true;
+            Shake();
             GamePad.SetVibration(playerindex, .3f, .3f);
-            CameraEffects.ShakeOnce();
             ghost.makeGhost = true;
             CanDash = false;
         }
@@ -453,7 +451,7 @@ public class PlayerMovement : MonoBehaviour
         if (wasDashing != isDashing)
         {
             NotDashingAnymore = true;
-            
+
         }
         else if (square.velocity.y <= 0)
         {
@@ -468,4 +466,8 @@ public class PlayerMovement : MonoBehaviour
         #endregion
     }
 
+   /* public bool canShoot()
+    {
+        return !onWall();
+    }*/
 }
