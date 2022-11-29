@@ -1,0 +1,132 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyMouvements : MonoBehaviour
+{
+    //Variables
+    private BoxCollider2D coll;
+    private Rigidbody2D Enemy;
+    [SerializeField] public Rigidbody2D Player;
+
+    //Player
+    Vector2 PlayerPosition;
+    float PredictedPlayerPositionX;
+    float PredictedPlayerPositionY;
+    Vector2 OldPlayerVelocity;
+    float Angle;
+
+    //Enemy
+    [SerializeField] public LayerMask jumpableGround; //Detects if slime is grounded
+    
+    float t1; //Time it takes a slime to jump to the player
+    float VxSlime; 
+    float VySlime;
+    float DistanceSlimePlayer;
+    bool isEnemyGrounded;
+    float SlimeJumpCounter;
+    float SlimeJumpBufferTime = 0.5f;
+
+    //Temp
+    [SerializeField] float xSPEEDFACTOR;
+    [SerializeField] float ySPEEDFACTOR;
+    [SerializeField] float TimeMin;
+    [SerializeField] float TimeMax;
+    [SerializeField] float Radius;
+
+
+    // Start is called before the first frame update
+
+
+    void Start()
+    {
+        Enemy = GetComponent<Rigidbody2D>(); //Assigning a variable that we can call to the rigidbody we created
+        coll = GetComponent<BoxCollider2D>();
+        Enemy.position = new Vector2(5, 2); //Assigning a initial position to the square (rigidbody)
+        Enemy.velocity = new Vector2(0, 0); //Assigning a initial velocity to the square (rigidbody)
+    }
+
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        //Timer for slime between Jumps
+        if (isEnemyGrounded == true)
+        {
+            SlimeJumpCounter -= Time.deltaTime;
+        }
+        else if (isEnemyGrounded == false)
+        {
+            SlimeJumpCounter = SlimeJumpBufferTime;
+        }
+
+        //Is the Enemy Grounded ?
+        isEnemyGrounded = Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .1f, jumpableGround);
+
+        //Gravity on Enemy
+        Enemy.AddForce(new Vector2(0,-25));
+
+        //Player Position
+        PlayerPosition = new Vector2(Player.position.x, Player.position.y);
+
+
+        //Checks if slime is grounded and exectues jump if so
+        if (isEnemyGrounded == true) 
+        {
+            //Distance slime-player
+            DistanceSlimePlayer = Mathf.Sqrt((Enemy.position.x - PlayerPosition.x) * (Enemy.position.x - PlayerPosition.x) + (Enemy.position.y - PlayerPosition.y) * (Enemy.position.y - PlayerPosition.y));
+
+            //Slime Jump
+            if (DistanceSlimePlayer > Radius && SlimeJumpCounter < 0)
+            {
+                //Velocity Components of the slime
+                SlimeJumpBufferTime = 0.5f;
+                VxSlime = Mathf.Sign(PlayerPosition.x - Enemy.position.x)*xSPEEDFACTOR;
+                VySlime = ySPEEDFACTOR;
+
+                //Velocity of Slime
+                Enemy.velocity = new Vector2(VxSlime, VySlime);
+
+            }
+
+            if (DistanceSlimePlayer <= Radius && SlimeJumpCounter < 0)
+            {
+
+                //Jump Time of Slime
+                SlimeJumpBufferTime = 0.2f;
+                t1 = Random.Range(TimeMin, TimeMax);
+
+                //Predicted Player Position (Varies between two states randomly)
+                if (Random.Range(0,1) <= 0.5)
+                {
+                    PredictedPlayerPositionX = PlayerPosition.x + Player.velocity.x * (t1);
+                    PredictedPlayerPositionY = PlayerPosition.y + Player.velocity.y * (t1);
+                }
+                else 
+                {
+                    PredictedPlayerPositionX = PlayerPosition.x;
+                    PredictedPlayerPositionY = PlayerPosition.y;
+                }
+
+                //Velocity Components of the slime
+                VxSlime = (PredictedPlayerPositionX - Enemy.position.x) / (t1);
+                VySlime = (PredictedPlayerPositionY - Enemy.position.y + 12.5f * t1 * t1) / (t1);
+                
+                //Velocity of Slime
+                Enemy.velocity = new Vector2(VxSlime, VySlime);
+
+
+                //When the slime grips on a wall, use the A-star algorithm to go around the stuff I guess.
+
+
+            }
+
+            OldPlayerVelocity = new Vector2(Player.velocity.x, Player.velocity.y);
+
+        }
+
+
+        
+
+      
+    }
+}
